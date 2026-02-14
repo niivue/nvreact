@@ -12,6 +12,9 @@
       "import": "./dist/lib.js"
     }
   },
+  "publishConfig": {
+    "access": "public"
+  },
   "files": [
     "dist"
   ],
