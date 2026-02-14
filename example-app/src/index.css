@@ -97,6 +97,33 @@ body {
   position: relative;
   overflow: hidden;
 }
+.location-footer {
+  background: #1a1a1a;
+  border: 1px solid #2a2a2a;
+  border-radius: 12px;
+  padding: 0.75rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-family: monospace;
+  font-size: 0.85rem;
+}
+.location-row {
+  display: flex;
+  gap: 0.75rem;
+  align-items: baseline;
+}
+.location-label {
+  font-weight: 700;
+  opacity: 0.6;
+  flex-shrink: 0;
+}
+.location-value {
+  opacity: 0.9;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .logo-container {
   display: flex;
   justify-content: center;

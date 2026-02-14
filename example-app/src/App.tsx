@@ -26,6 +26,7 @@ export function App() {
   const [sliceLayoutName, setSliceLayoutName] =
     useState<string>("axial-hero");
   const [demoMode, setDemoMode] = useState<DemoMode>("scene");
+  const [locationStrings, setLocationStrings] = useState<Record<number, string>>({});
 
   // Log events via useSceneEvent
   useSceneEvent(scene, "viewerCreated", (_nv, index) => {
@@ -34,12 +35,24 @@ export function App() {
 
   useSceneEvent(scene, "viewerRemoved", (index) => {
     console.log(`[event] viewerRemoved: index=${index}`);
+    setLocationStrings((prev) => {
+      const next = { ...prev };
+      delete next[index];
+      return next;
+    });
   });
 
   useSceneEvent(scene, "imageLoaded", (viewerIndex, volume) => {
     console.log(
       `[event] imageLoaded: viewer=${viewerIndex}, name=${volume.name}`,
     );
+  });
+
+  useSceneEvent(scene, "locationChange", (viewerIndex, data) => {
+    const loc = data as { string?: string };
+    if (loc.string) {
+      setLocationStrings((prev) => ({ ...prev, [viewerIndex]: loc.string! }));
+    }
   });
 
   // Load volumes for any viewer that doesn't have one yet.
@@ -213,11 +226,25 @@ export function App() {
           </section>
         )}
         {demoMode === "scene" ? (
-          <NvScene
-            scene={scene}
-            className="niivue-container"
-            initialLayout={layoutName}
-          />
+          <>
+            <NvScene
+              scene={scene}
+              className="niivue-container"
+              initialLayout={layoutName}
+            />
+            {snapshot.viewerCount > 0 && (
+              <footer className="location-footer">
+                {Array.from({ length: snapshot.viewerCount }, (_, i) => (
+                  <div key={i} className="location-row">
+                    <span className="location-label">Viewer {i + 1}</span>
+                    <span className="location-value">
+                      {locationStrings[i] ?? "—"}
+                    </span>
+                  </div>
+                ))}
+              </footer>
+            )}
+          </>
         ) : (
           <NvViewer
             volumes={[MNI_VOLUME]}

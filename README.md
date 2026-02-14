@@ -95,6 +95,10 @@ useSceneEvent(scene, "viewerCreated", (nv, index) => {
 useSceneEvent(scene, "imageLoaded", (viewerIndex, volume) => {
   console.log(`loaded ${volume.name} in viewer ${viewerIndex}`);
 });
+
+useSceneEvent(scene, "locationChange", (viewerIndex, data) => {
+  console.log(`viewer ${viewerIndex}: ${data.string}`);
+});
 ```
 
 #### Events
