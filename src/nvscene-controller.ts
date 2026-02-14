@@ -3,10 +3,12 @@ import {
   Niivue,
   SLICE_TYPE,
   type NVConfigOptions,
+  type NVImage,
   SHOW_RENDER,
 } from "@niivue/niivue";
 import type { LayoutConfig } from "./layouts";
 import { defaultLayouts } from "./layouts";
+import type { NvSceneEventMap, ViewerState, ImageFromUrlOptions } from "./types";
 
 export { SLICE_TYPE };
 
@@ -24,6 +26,8 @@ export interface NvSceneControllerSnapshot {
   viewerCount: number;
   slots: number;
   isBroadcasting: boolean;
+  isLoading: boolean;
+  viewerStates: ViewerState[];
 }
 
 export interface BroadcastOptions {
@@ -126,6 +130,18 @@ export const defaultSliceLayouts: Record<string, SliceLayoutConfig> = {
 
 type Listener = () => void;
 
+export const defaultViewerOptions: Partial<NVConfigOptions> = {
+  crosshairGap: 5,
+};
+
+export const defaultMouseConfig = {
+  leftButton: {
+    primary: DRAG_MODE.crosshair,
+  },
+  rightButton: DRAG_MODE.pan,
+  centerButton: DRAG_MODE.slicer3D,
+};
+
 /**
  * An NvSceneController is a declarative representation of what we want to render with Niivue.
  *
@@ -154,32 +170,76 @@ export class NvSceneController {
   private broadcasting = false;
   private broadcastOptions: BroadcastOptions = { "2d": true, "3d": true };
   private viewerSliceLayouts = new Map<string, SliceLayoutTile[] | null>();
+  private viewerDefaults: Partial<NVConfigOptions>;
 
-  constructor(layouts: Record<string, LayoutConfig> = defaultLayouts) {
+  // Event system
+  private eventListeners = new Map<string, Set<Function>>();
+
+  // Loading/error state
+  private loadingCounts = new Map<string, number>();
+  private viewerErrors = new Map<string, unknown[]>();
+
+  constructor(
+    layouts: Record<string, LayoutConfig> = defaultLayouts,
+    viewerDefaults: Partial<NVConfigOptions> = {},
+  ) {
     this.layouts = layouts;
     this.slots = this.layouts[this.currentLayout]?.slots ?? 1;
+    this.viewerDefaults = viewerDefaults;
   }
 
-  /**
-   * Subscribe to scene changes. Returns an unsubscribe function.
-   * Compatible with React's useSyncExternalStore.
-   */
+  // --- Event system ---
+
+  on<E extends keyof NvSceneEventMap>(
+    event: E,
+    cb: NvSceneEventMap[E],
+  ): () => void {
+    if (!this.eventListeners.has(event)) {
+      this.eventListeners.set(event, new Set());
+    }
+    this.eventListeners.get(event)!.add(cb);
+    return () => this.off(event, cb);
+  }
+
+  off<E extends keyof NvSceneEventMap>(
+    event: E,
+    cb: NvSceneEventMap[E],
+  ): void {
+    this.eventListeners.get(event)?.delete(cb);
+  }
+
+  private emit<E extends keyof NvSceneEventMap>(
+    event: E,
+    ...args: Parameters<NvSceneEventMap[E]>
+  ): void {
+    const listeners = this.eventListeners.get(event);
+    if (!listeners) return;
+    for (const cb of listeners) {
+      (cb as (...a: unknown[]) => void)(...args);
+    }
+  }
+
+  // --- Subscribe / snapshot ---
+
   subscribe = (listener: Listener): (() => void) => {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);
   };
 
-  /**
-   * Get a snapshot of the current scene state.
-   * Compatible with React's useSyncExternalStore.
-   */
   getSnapshot = (): NvSceneControllerSnapshot => {
     if (!this.snapshotCache) {
+      const viewerStates: ViewerState[] = this.viewers.map((v) => ({
+        id: v.id,
+        loading: this.loadingCounts.get(v.id) ?? 0,
+        errors: this.viewerErrors.get(v.id) ?? [],
+      }));
       this.snapshotCache = {
         currentLayout: this.currentLayout,
         viewerCount: this.viewers.length,
         slots: this.slots,
         isBroadcasting: this.broadcasting,
+        isLoading: viewerStates.some((s) => s.loading > 0),
+        viewerStates,
       };
     }
     return this.snapshotCache;
@@ -189,6 +249,8 @@ export class NvSceneController {
     this.snapshotCache = null;
     this.listeners.forEach((listener) => listener());
   }
+
+  // --- Container & layout ---
 
   setContainerElement(element: HTMLElement | null): void {
     this.containerElement = element;
@@ -244,31 +306,18 @@ export class NvSceneController {
     return this.viewers.length < this.slots;
   }
 
-  /**
-   * Get a Niivue instance by index.
-   */
   getNiivue(index: number): Niivue | undefined {
     return this.viewers[index]?.niivue;
   }
 
-  /**
-   * Get all Niivue instances as an array.
-   */
   getAllNiivue(): Niivue[] {
     return this.viewers.map((viewer) => viewer.niivue);
   }
 
-  /**
-   * Execute a callback on each Niivue instance.
-   */
   forEachNiivue(callback: NiivueCallback): void {
     this.viewers.forEach((viewer, i) => callback(viewer.niivue, i));
   }
 
-  /**
-   * Enable or disable bidirectional broadcasting between all viewers.
-   * When enabled, interactions (pan, zoom, slice changes) sync across all viewers.
-   */
   setBroadcasting(enabled: boolean, options?: Partial<BroadcastOptions>): void {
     this.broadcasting = enabled;
     if (options) {
@@ -276,7 +325,6 @@ export class NvSceneController {
     }
 
     if (enabled) {
-      // Set up bidirectional broadcasting between all viewers
       this.viewers.forEach((viewer) => {
         const others = this.viewers
           .filter((v) => v.id !== viewer.id)
@@ -284,7 +332,6 @@ export class NvSceneController {
         viewer.niivue.broadcastTo(others, this.broadcastOptions);
       });
     } else {
-      // Disable broadcasting by clearing broadcast targets
       this.viewers.forEach((viewer) => {
         viewer.niivue.broadcastTo([], this.broadcastOptions);
       });
@@ -293,17 +340,10 @@ export class NvSceneController {
     this.notify();
   }
 
-  /**
-   * Check if broadcasting is currently enabled.
-   */
   isBroadcasting(): boolean {
     return this.broadcasting;
   }
 
-  /**
-   * Set a custom slice layout for a specific viewer.
-   * Pass null to clear the custom layout and return to axial.
-   */
   setViewerSliceLayout(index: number, layout: SliceLayoutTile[] | null): void {
     const viewer = this.viewers[index];
     if (!viewer) return;
@@ -312,18 +352,12 @@ export class NvSceneController {
     this.notify();
   }
 
-  /**
-   * Get the current slice layout for a specific viewer.
-   */
   getViewerSliceLayout(index: number): SliceLayoutTile[] | null {
     const viewer = this.viewers[index];
     if (!viewer) return null;
     return this.viewerSliceLayouts.get(viewer.id) ?? null;
   }
 
-  /**
-   * Apply the current slice layout to a Niivue instance.
-   */
   private applySliceLayout(nv: Niivue, layout: SliceLayoutTile[] | null): void {
     if (layout) {
       nv.setCustomLayout(layout);
@@ -334,19 +368,80 @@ export class NvSceneController {
     }
   }
 
-  /**
-   * Get a Niivue instance by its unique ID.
-   */
   getNiivueById(id: string): Niivue | undefined {
     return this.viewersById.get(id)?.niivue;
   }
 
-  /**
-   * Get a ViewerSlot by its unique ID.
-   */
   getViewerById(id: string): ViewerSlot | undefined {
     return this.viewersById.get(id);
   }
+
+  // --- Volume management ---
+
+  async loadVolume(
+    index: number,
+    opts: ImageFromUrlOptions,
+  ): Promise<NVImage> {
+    const viewer = this.viewers[index];
+    if (!viewer) throw new Error(`No viewer at index ${index}`);
+
+    this.incrementLoading(viewer.id);
+    try {
+      const image = await viewer.niivue.addVolumeFromUrl(opts);
+      this.emit("volumeAdded", index, opts, image);
+      return image;
+    } catch (err) {
+      this.addError(viewer.id, err);
+      this.emit("error", index, err);
+      throw err;
+    } finally {
+      this.decrementLoading(viewer.id);
+    }
+  }
+
+  async loadVolumes(
+    index: number,
+    opts: ImageFromUrlOptions[],
+  ): Promise<NVImage[]> {
+    const results: NVImage[] = [];
+    for (const o of opts) {
+      results.push(await this.loadVolume(index, o));
+    }
+    return results;
+  }
+
+  removeVolume(index: number, url: string): void {
+    const viewer = this.viewers[index];
+    if (!viewer) return;
+    const nv = viewer.niivue;
+    const vol = nv.volumes.find(
+      (v: NVImage) => v.url === url || v.name === url,
+    );
+    if (vol) {
+      nv.removeVolume(vol);
+      this.emit("volumeRemoved", index, url);
+      this.notify();
+    }
+  }
+
+  private incrementLoading(id: string): void {
+    this.loadingCounts.set(id, (this.loadingCounts.get(id) ?? 0) + 1);
+    this.notify();
+  }
+
+  private decrementLoading(id: string): void {
+    const count = (this.loadingCounts.get(id) ?? 1) - 1;
+    this.loadingCounts.set(id, Math.max(0, count));
+    this.notify();
+  }
+
+  private addError(id: string, error: unknown): void {
+    const errors = this.viewerErrors.get(id) ?? [];
+    errors.push(error);
+    this.viewerErrors.set(id, errors);
+  }
+
+  // --- Viewer lifecycle ---
 
   addViewer(options?: Partial<NVConfigOptions>): ViewerSlot {
     if (!this.containerElement) {
@@ -365,29 +460,21 @@ export class NvSceneController {
     containerDiv.appendChild(canvas);
 
     this.containerElement.appendChild(containerDiv);
-    const defaultOptions = {
-      crosshairGap: 5,
-    };
-    const niivue = new Niivue({
+
+    const mergedOptions: Partial<NVConfigOptions> = {
+      ...defaultViewerOptions,
+      ...this.viewerDefaults,
       ...options,
-      ...defaultOptions,
-      loadingText: "virdx",
-    });
-    niivue.setMouseEventConfig({
-      leftButton: {
-        primary: DRAG_MODE.crosshair,
-      },
-      rightButton: DRAG_MODE.pan,
-      centerButton: DRAG_MODE.slicer3D,
-    });
+    };
+
+    const niivue = new Niivue(mergedOptions);
+    niivue.setMouseEventConfig(defaultMouseConfig);
     niivue.attachToCanvas(canvas);
-    void niivue.addVolumeFromUrl({
-      url: "https://niivue.github.io/niivue-demo-images/mni152.nii.gz",
-      name: "mni152",
-    });
 
     const id = `nv-${this.nextId++}`;
     this.viewerSliceLayouts.set(id, null);
+    this.loadingCounts.set(id, 0);
+    this.viewerErrors.set(id, []);
 
     const viewer: ViewerSlot = {
       id,
@@ -403,14 +490,23 @@ export class NvSceneController {
     // Apply the current slice layout (default axial).
     this.applySliceLayout(niivue, null);
 
+    // Wire Niivue callbacks to event system
+    const index = this.viewers.length - 1;
+    niivue.onLocationChange = (data: unknown) => {
+      this.emit("locationChange", index, data);
+    };
+    niivue.onImageLoaded = (vol: NVImage) => {
+      this.emit("imageLoaded", index, vol);
+    };
+
     // Update broadcasting to include new viewer
     if (this.broadcasting) {
       this.setBroadcasting(true);
     }
 
     // Call the onViewerCreated callback if provided
-    const index = this.viewers.length - 1;
     this.onViewerCreated?.(niivue, index);
+    this.emit("viewerCreated", niivue, index);
 
     this.notify();
 
@@ -426,6 +522,8 @@ export class NvSceneController {
     // Remove from ID map
     this.viewersById.delete(viewer.id);
     this.viewerSliceLayouts.delete(viewer.id);
+    this.loadingCounts.delete(viewer.id);
+    this.viewerErrors.delete(viewer.id);
 
     // Properly dispose of WebGL context to free up resources
     this.disposeViewer(viewer);
@@ -439,6 +537,8 @@ export class NvSceneController {
       this.setBroadcasting(true);
     }
 
+    this.emit("viewerRemoved", index);
+
     if (shouldNotify) {
       this.notify();
     }
@@ -446,9 +546,7 @@ export class NvSceneController {
 
   private disposeViewer(viewer: ViewerSlot): void {
     const nv = viewer.niivue;
-    // Get the WebGL context directly from Niivue before disposal
     let gl: WebGL2RenderingContext | null = nv._gl;
-    // Explicitly lose the WebGL context to free it up
     if (gl) {
       const ext = gl.getExtension("WEBGL_lose_context");
       if (ext) {
@@ -456,8 +554,6 @@ export class NvSceneController {
       }
       gl = null;
     }
-
-    // Clear canvas dimensions to help release memory
     viewer.canvasElement.width = 0;
     viewer.canvasElement.height = 0;
   }
@@ -470,6 +566,8 @@ export class NvSceneController {
     });
     this.viewers = [];
     this.viewersById.clear();
+    this.loadingCounts.clear();
+    this.viewerErrors.clear();
     this.notify();
   }
 
