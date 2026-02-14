@@ -1,0 +1,44 @@
+{
+  "name": "nv-react",
+  "version": "0.1.0",
+  "private": false,
+  "type": "module",
+  "main": "./dist/lib.js",
+  "module": "./dist/lib.js",
+  "types": "./dist/types/lib.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/types/lib.d.ts",
+      "import": "./dist/lib.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "dev": "bun --hot src/index.ts",
+    "build": "bun build ./src/index.html --outdir=dist --sourcemap --target=browser --minify --define:process.env.NODE_ENV='\"production\"' --env='BUN_PUBLIC_*'",
+    "start": "NODE_ENV=production bun src/index.ts",
+    "build:lib": "bun build ./src/lib.ts --outdir=dist --target=browser --format=esm --external react --external react-dom --external @niivue/niivue",
+    "build:types": "tsc -p tsconfig.build.json",
+    "build:package": "bun run build:lib && bun run build:types",
+    "pack:local": "bun run build:package && npm pack",
+    "example:setup": "bun run scripts/setup-example-app.js",
+    "example:dev": "bun run example:setup && cd example-app && bun install && bun dev"
+  },
+  "dependencies": {},
+  "peerDependencies": {
+    "@niivue/niivue": "0.67.1-dev.2",
+    "react": "^19",
+    "react-dom": "^19"
+  },
+  "devDependencies": {
+    "@niivue/niivue": "0.67.1-dev.2",
+    "@types/bun": "latest",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "react": "^19",
+    "react-dom": "^19",
+    "typescript": "^5.9.3"
+  }
+}
