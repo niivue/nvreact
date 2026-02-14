@@ -5,7 +5,7 @@
     "": {
       "name": "nv-react-example",
       "dependencies": {
-        "nv-react": "file:../nv-react-0.1.0.tgz",
+        "@niivue/nvreact": "file:../niivue-nvreact-0.1.0.tgz",
         "react": "^19",
         "react-dom": "^19",
       },
@@ -17,6 +17,8 @@
     "@lukeed/uuid": ["@lukeed/uuid@2.0.1", "", { "dependencies": { "@lukeed/csprng": "^1.1.0" } }, "sha512-qC72D4+CDdjGqJvkFMMEAtancHUQ7/d/tAiHf64z8MopFDmcrtbcJuerDtFceuAfQJ2pDSfCKCtbqoGBNnwg0w=="],
 
     "@niivue/niivue": ["@niivue/niivue@0.67.1-dev.2", "", { "dependencies": { "@lukeed/uuid": "^2.0.1", "@ungap/structured-clone": "^1.2.0", "array-equal": "^1.0.2", "fflate": "^0.8.2", "gl-matrix": "^3.4.3", "nifti-reader-js": "^0.8.0", "zarrita": "^0.5.0" }, "optionalDependencies": { "@rollup/rollup-linux-x64-gnu": "^4.18.1" } }, "sha512-WoyLzMtl2saaadNIvG/Gby3/F1o7gILPfBL+nHNV2te4mvyxTxNUWizCNjeCMlQIFsTfgZFV9FYPVclxoIxsqQ=="],
+
+    "@niivue/nvreact": ["@niivue/nvreact@../niivue-nvreact-0.1.0.tgz", { "peerDependencies": { "@niivue/niivue": "0.67.1-dev.2", "react": "^19", "react-dom": "^19" } }],
 
     "@rollup/rollup-linux-x64-gnu": ["@rollup/rollup-linux-x64-gnu@4.57.1", "", { "os": "linux", "cpu": "x64" }, "sha512-ABca4ceT4N+Tv/GtotnWAeXZUZuM/9AQyCyKYyKnpk4yoA7QIAuBt6Hkgpw8kActYlew2mvckXkvx0FfoInnLg=="],
 
@@ -33,8 +35,6 @@
     "nifti-reader-js": ["nifti-reader-js@0.8.0", "", { "dependencies": { "fflate": "^0.8.2" } }, "sha512-iO1iIhQDfKniy+l/86HfOPte7So+SxBmBiMSiUB2VXU7z4hSewMTlE3h0fCgfzfXvMUa+ilzLTJ2ZHmtFw6EWw=="],
 
     "numcodecs": ["numcodecs@0.3.2", "", { "dependencies": { "fflate": "^0.8.0" } }, "sha512-6YSPnmZgg0P87jnNhi3s+FVLOcIn3y+1CTIgUulA3IdASzK9fJM87sUFkpyA+be9GibGRaST2wCgkD+6U+fWKw=="],
-
-    "nv-react": ["nv-react@../nv-react-0.1.0.tgz", { "peerDependencies": { "@niivue/niivue": "0.67.1-dev.2", "react": "^19", "react-dom": "^19" } }],
 
     "react": ["react@19.2.4", "", {}, "sha512-9nfp2hYpCwOjAN+8TZFGhtWEwgvWHXqESH8qT89AT/lWklpLON22Lc8pEtnpsZz7VmawabSU0gCjnj8aC0euHQ=="],
 

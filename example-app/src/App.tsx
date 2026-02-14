@@ -1,31 +1,61 @@
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-  useSyncExternalStore,
-  type ChangeEvent,
-} from "react";
-import {
-  NvScene,
-  NvSceneController,
-  defaultLayouts,
-  defaultSliceLayouts,
-} from "nv-react";
 import "./index.css";
 
+import { useCallback, useEffect, useRef, useState, type ChangeEvent } from "react";
+import {
+  NvScene,
+  NvViewer,
+  NvSceneProvider,
+  defaultLayouts,
+  defaultSliceLayouts,
+  useScene,
+  useSceneEvent,
+} from "@niivue/nvreact";
+
+const MNI_VOLUME = {
+  url: "https://niivue.github.io/niivue-demo-images/mni152.nii.gz",
+  name: "mni152",
+};
+
+type DemoMode = "scene" | "viewer";
+
 export function App() {
-  const scene = useMemo(() => new NvSceneController(defaultLayouts), []);
-  const snapshot = useSyncExternalStore(
-    scene.subscribe,
-    scene.getSnapshot,
-    scene.getSnapshot,
-  );
+  const { scene, snapshot } = useScene();
   const [layoutName, setLayoutName] = useState<string>("2x2");
   const [sliceLayoutEnabled, setSliceLayoutEnabled] = useState(false);
   const [selectedViewerIndex, setSelectedViewerIndex] = useState(0);
   const [sliceLayoutName, setSliceLayoutName] =
     useState<string>("axial-hero");
+  const [demoMode, setDemoMode] = useState<DemoMode>("scene");
+
+  // Log events via useSceneEvent
+  useSceneEvent(scene, "viewerCreated", (_nv, index) => {
+    console.log(`[event] viewerCreated: index=${index}`);
+  });
+
+  useSceneEvent(scene, "viewerRemoved", (index) => {
+    console.log(`[event] viewerRemoved: index=${index}`);
+  });
+
+  useSceneEvent(scene, "imageLoaded", (viewerIndex, volume) => {
+    console.log(
+      `[event] imageLoaded: viewer=${viewerIndex}, name=${volume.name}`,
+    );
+  });
+
+  // Load volumes for any viewer that doesn't have one yet.
+  // This is done via useEffect on viewerCount rather than the viewerCreated
+  // event, because React runs child effects (NvScene) before parent effects,
+  // so the event listener may not be registered when the first viewer is created.
+  const loadedViewerIds = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    for (let i = 0; i < snapshot.viewerCount; i++) {
+      const viewer = scene.viewers[i];
+      if (viewer && !loadedViewerIds.current.has(viewer.id)) {
+        loadedViewerIds.current.add(viewer.id);
+        scene.loadVolume(i, MNI_VOLUME).catch(console.error);
+      }
+    }
+  }, [scene, snapshot.viewerCount]);
 
   useEffect(() => {
     if (selectedViewerIndex >= snapshot.viewerCount) {
@@ -73,7 +103,7 @@ export function App() {
       const nextIndex = Number(event.target.value);
       setSelectedViewerIndex(nextIndex);
       const layout = sliceLayoutEnabled
-        ? defaultSliceLayouts[sliceLayoutName]?.layout ?? null
+        ? (defaultSliceLayouts[sliceLayoutName]?.layout ?? null)
         : null;
       scene.setViewerSliceLayout(nextIndex, layout);
     },
@@ -91,82 +121,118 @@ export function App() {
     [scene, selectedViewerIndex, sliceLayoutEnabled],
   );
 
+  const handleDemoModeToggle = useCallback(() => {
+    setDemoMode((m) => (m === "scene" ? "viewer" : "scene"));
+  }, []);
+
   return (
-    <div className="app">
-      <header className="app-toolbar">
-        <div className="app-title">
-          <h1>nv-react example</h1>
-          <span>{snapshot.viewerCount} instances</span>
-        </div>
-        <div className="app-actions">
-          <button
-            type="button"
-            onClick={handleAdd}
-            disabled={!scene.canAddViewer()}
-          >
-            Add instance
-          </button>
-          <button
-            type="button"
-            onClick={handleRemove}
-            disabled={snapshot.viewerCount === 0}
-          >
-            Remove instance
-          </button>
-        </div>
-      </header>
-      <section className="app-controls">
-        <label className="control-group">
-          <span className="control-label">Layout</span>
-          <select value={layoutName} onChange={handleLayoutChange}>
-            {Object.entries(defaultLayouts).map(([key, config]) => (
-              <option key={key} value={key}>
-                {config.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="control-group">
-          <span className="control-label">Viewer</span>
-          <select
-            value={selectedViewerIndex}
-            onChange={handleViewerChange}
-            disabled={snapshot.viewerCount === 0}
-          >
-            {Array.from({ length: snapshot.viewerCount }, (_, index) => (
-              <option key={index} value={index}>
-                {index + 1}
-              </option>
-            ))}
-          </select>
-        </label>
-        <button type="button" onClick={handleBroadcastToggle}>
-          {snapshot.isBroadcasting ? "Disable sync" : "Enable sync"}
-        </button>
-        <button type="button" onClick={handleSliceLayoutToggle}>
-          {sliceLayoutEnabled ? "Standard slices" : "Custom slices"}
-        </button>
-        <label className="control-group">
-          <span className="control-label">Slice layout</span>
-          <select
-            value={sliceLayoutName}
-            onChange={handleSliceLayoutChange}
-            disabled={!sliceLayoutEnabled}
-          >
-            {Object.entries(defaultSliceLayouts).map(([key, config]) => (
-              <option key={key} value={key}>
-                {config.label}
-              </option>
-            ))}
-          </select>
-        </label>
-      </section>
-      <NvScene
-        scene={scene}
-        className="niivue-container"
-        initialLayout={layoutName}
-      />
-    </div>
+    <NvSceneProvider scene={scene}>
+      <div className="app">
+        <header className="app-toolbar">
+          <div className="app-title">
+            <h1>{demoMode === "scene" ? "NvScene" : "NvViewer"}</h1>
+            <span>
+              {demoMode === "scene"
+                ? `${snapshot.viewerCount} instances`
+                : "standalone"}
+              {snapshot.isLoading ? " (loading...)" : ""}
+            </span>
+          </div>
+          <div className="app-actions">
+            <button type="button" onClick={handleDemoModeToggle}>
+              {demoMode === "scene"
+                ? "Switch to NvViewer"
+                : "Switch to NvScene"}
+            </button>
+            {demoMode === "scene" && (
+              <>
+                <button
+                  type="button"
+                  onClick={handleAdd}
+                  disabled={!scene.canAddViewer()}
+                >
+                  Add instance
+                </button>
+                <button
+                  type="button"
+                  onClick={handleRemove}
+                  disabled={snapshot.viewerCount === 0}
+                >
+                  Remove instance
+                </button>
+              </>
+            )}
+          </div>
+        </header>
+        {demoMode === "scene" && (
+          <section className="app-controls">
+            <label className="control-group">
+              <span className="control-label">Layout</span>
+              <select value={layoutName} onChange={handleLayoutChange}>
+                {Object.entries(defaultLayouts).map(([key, config]) => (
+                  <option key={key} value={key}>
+                    {config.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="control-group">
+              <span className="control-label">Viewer</span>
+              <select
+                value={selectedViewerIndex}
+                onChange={handleViewerChange}
+                disabled={snapshot.viewerCount === 0}
+              >
+                {Array.from({ length: snapshot.viewerCount }, (_, index) => (
+                  <option key={index} value={index}>
+                    {index + 1}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button type="button" onClick={handleBroadcastToggle}>
+              {snapshot.isBroadcasting ? "Disable sync" : "Enable sync"}
+            </button>
+            <button type="button" onClick={handleSliceLayoutToggle}>
+              {sliceLayoutEnabled ? "Standard slices" : "Custom slices"}
+            </button>
+            <label className="control-group">
+              <span className="control-label">Slice layout</span>
+              <select
+                value={sliceLayoutName}
+                onChange={handleSliceLayoutChange}
+                disabled={!sliceLayoutEnabled}
+              >
+                {Object.entries(defaultSliceLayouts).map(([key, config]) => (
+                  <option key={key} value={key}>
+                    {config.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </section>
+        )}
+        {demoMode === "scene" ? (
+          <NvScene
+            scene={scene}
+            className="niivue-container"
+            initialLayout={layoutName}
+          />
+        ) : (
+          <NvViewer
+            volumes={[MNI_VOLUME]}
+            className="niivue-container"
+            onLocationChange={(data) =>
+              console.log("[NvViewer] location:", data)
+            }
+            onImageLoaded={(vol) =>
+              console.log("[NvViewer] loaded:", vol.name)
+            }
+            onError={(err) => console.error("[NvViewer] error:", err)}
+          />
+        )}
+      </div>
+    </NvSceneProvider>
   );
 }
 

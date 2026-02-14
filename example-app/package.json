@@ -8,7 +8,7 @@
     "start": "NODE_ENV=production bun src/index.ts"
   },
   "dependencies": {
-    "nv-react": "file:../nv-react-0.1.0.tgz",
+    "@niivue/nvreact": "file:../niivue-nvreact-0.1.0.tgz",
     "react": "^19",
     "react-dom": "^19"
   }
