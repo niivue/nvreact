@@ -1,17 +1,50 @@
 import "./index.css";
 
-import { useCallback, useEffect, useRef, useState, type ChangeEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { defaultLayouts } from "./layouts";
 import { NvScene } from "./nvscene";
 import { NvViewer } from "./nvviewer";
 import { defaultSliceLayouts } from "./nvscene-controller";
 import { useScene, useSceneEvent } from "./hooks";
 import { NvSceneProvider } from "./context";
+import type { ImageFromUrlOptions } from "./types";
 
-const MNI_VOLUME = {
-  url: "https://niivue.github.io/niivue-demo-images/mni152.nii.gz",
+const MNI_URL = "https://niivue.github.io/niivue-demo-images/mni152.nii.gz";
+
+const MNI_VOLUME: ImageFromUrlOptions = {
+  url: MNI_URL,
   name: "mni152",
 };
+
+/** Common colormaps available in Niivue */
+const COLORMAPS = [
+  "gray",
+  "hot",
+  "cool",
+  "warm",
+  "winter",
+  "autumn",
+  "copper",
+  "bone",
+  "jet",
+  "hsv",
+  "red",
+  "green",
+  "blue",
+  "inferno",
+  "plasma",
+  "viridis",
+  "magma",
+  "cividis",
+  "actc",
+  "ct_airways",
+  "ct_artery",
+  "ct_brain",
+  "ct_kidneys",
+  "ct_muscles",
+  "ct_soft_tissue",
+  "ct_w_contrast",
+];
 
 type DemoMode = "scene" | "viewer";
 
@@ -23,6 +56,12 @@ export function App() {
   const [sliceLayoutName, setSliceLayoutName] =
     useState<string>("axial-hero");
   const [demoMode, setDemoMode] = useState<DemoMode>("scene");
+
+  // --- Colormap / intensity / opacity state ---
+  const [colormap, setColormap] = useState("gray");
+  const [calMin, setCalMin] = useState(0);
+  const [calMax, setCalMax] = useState(255);
+  const [opacity, setOpacity] = useState(1.0);
 
   // Log events via useSceneEvent
   useSceneEvent(scene, "viewerCreated", (_nv, index) => {
@@ -37,6 +76,18 @@ export function App() {
     console.log(
       `[event] imageLoaded: viewer=${viewerIndex}, name=${volume.name}`,
     );
+  });
+
+  useSceneEvent(scene, "colormapChanged", (viewerIndex, volumeIndex, cm) => {
+    console.log(`[event] colormapChanged: viewer=${viewerIndex}, vol=${volumeIndex}, colormap=${cm}`);
+  });
+
+  useSceneEvent(scene, "intensityChanged", (viewerIndex, volumeIndex, min, max) => {
+    console.log(`[event] intensityChanged: viewer=${viewerIndex}, vol=${volumeIndex}, cal_min=${min}, cal_max=${max}`);
+  });
+
+  useSceneEvent(scene, "opacityChanged", (viewerIndex, volumeIndex, op) => {
+    console.log(`[event] opacityChanged: viewer=${viewerIndex}, vol=${volumeIndex}, opacity=${op}`);
   });
 
   // Load volumes for any viewer that doesn't have one yet.
@@ -121,6 +172,58 @@ export function App() {
   const handleDemoModeToggle = useCallback(() => {
     setDemoMode((m) => (m === "scene" ? "viewer" : "scene"));
   }, []);
+
+  // --- Colormap / intensity / opacity handlers (NvScene mode) ---
+
+  const handleColormapChange = useCallback(
+    (event: ChangeEvent<HTMLSelectElement>) => {
+      const cm = event.target.value;
+      setColormap(cm);
+      scene.setColormap(selectedViewerIndex, 0, cm);
+    },
+    [scene, selectedViewerIndex],
+  );
+
+  const handleCalMinChange = useCallback(
+    (event: ChangeEvent<HTMLInputElement>) => {
+      const val = Number(event.target.value);
+      setCalMin(val);
+      scene.setCalMinMax(selectedViewerIndex, 0, val, calMax);
+    },
+    [scene, selectedViewerIndex, calMax],
+  );
+
+  const handleCalMaxChange = useCallback(
+    (event: ChangeEvent<HTMLInputElement>) => {
+      const val = Number(event.target.value);
+      setCalMax(val);
+      scene.setCalMinMax(selectedViewerIndex, 0, calMin, val);
+    },
+    [scene, selectedViewerIndex, calMin],
+  );
+
+  const handleOpacityChange = useCallback(
+    (event: ChangeEvent<HTMLInputElement>) => {
+      const val = Number(event.target.value);
+      setOpacity(val);
+      scene.setOpacity(selectedViewerIndex, 0, val);
+    },
+    [scene, selectedViewerIndex],
+  );
+
+  // NvViewer mode: build declarative volumes with current visual props
+  const viewerVolumes = useMemo<ImageFromUrlOptions[]>(
+    () => [
+      {
+        ...MNI_VOLUME,
+        colormap,
+        cal_min: calMin,
+        cal_max: calMax,
+        opacity,
+      },
+    ],
+    [colormap, calMin, calMax, opacity],
+  );
 
   return (
     <NvSceneProvider scene={scene}>
@@ -209,6 +312,55 @@ export function App() {
             </label>
           </section>
         )}
+        {/* Colormap / intensity / opacity controls — shared by both modes */}
+        <section className="app-controls volume-controls">
+          <label className="control-group">
+            <span className="control-label">Colormap</span>
+            <select value={colormap} onChange={handleColormapChange}>
+              {COLORMAPS.map((cm) => (
+                <option key={cm} value={cm}>
+                  {cm}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="control-group">
+            <span className="control-label">Min</span>
+            <input
+              type="range"
+              min={0}
+              max={255}
+              step={1}
+              value={calMin}
+              onChange={handleCalMinChange}
+            />
+            <span className="control-value">{calMin}</span>
+          </label>
+          <label className="control-group">
+            <span className="control-label">Max</span>
+            <input
+              type="range"
+              min={0}
+              max={255}
+              step={1}
+              value={calMax}
+              onChange={handleCalMaxChange}
+            />
+            <span className="control-value">{calMax}</span>
+          </label>
+          <label className="control-group">
+            <span className="control-label">Opacity</span>
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.05}
+              value={opacity}
+              onChange={handleOpacityChange}
+            />
+            <span className="control-value">{opacity.toFixed(2)}</span>
+          </label>
+        </section>
         {demoMode === "scene" ? (
           <NvScene
             scene={scene}
@@ -217,7 +369,7 @@ export function App() {
           />
         ) : (
           <NvViewer
-            volumes={[MNI_VOLUME]}
+            volumes={viewerVolumes}
             className="niivue-container"
             onLocationChange={(data) =>
               console.log("[NvViewer] location:", data)

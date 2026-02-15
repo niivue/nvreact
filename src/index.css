@@ -88,6 +88,24 @@ body {
   opacity: 0.7;
   font-size: 0.9rem;
 }
+.control-value {
+  font-family: monospace;
+  font-size: 0.85rem;
+  min-width: 2.5em;
+  text-align: right;
+  opacity: 0.85;
+}
+.volume-controls {
+  background: #1a1a1a;
+  border: 1px solid #2a2a2a;
+  border-radius: 12px;
+  padding: 0.6rem 1rem;
+}
+.volume-controls input[type="range"] {
+  accent-color: #fbf0df;
+  width: 120px;
+  cursor: pointer;
+}
 .niivue-container {
   flex: 1;
   min-height: 420px;

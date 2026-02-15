@@ -17,12 +17,17 @@ and PR.
 
 ## 2. Colormaps and Intensity Controls
 
-No React-level API for changing colormaps, adjusting window/level
-(contrast/brightness), or per-volume opacity.
+~~No React-level API for changing colormaps, adjusting window/level
+(contrast/brightness), or per-volume opacity.~~
 
-- [ ] Support colormap, `cal_min`, `cal_max`, and `opacity` in `ImageFromUrlOptions` / volume props
-- [ ] Controller methods: `setColormap`, `setCalMinMax`, `setOpacity`
-- [ ] Events: `colormapChanged`, `intensityChanged`
+Controller methods (`setColormap`, `setCalMinMax`, `setOpacity`) identify
+volumes by viewer index + volume index. `NvViewer` declarative diffing detects
+changes to `colormap`, `cal_min`, `cal_max`, and `opacity` on already-loaded
+volumes and applies them without reloading.
+
+- [x] Support colormap, `cal_min`, `cal_max`, and `opacity` in `ImageFromUrlOptions` / volume props
+- [x] Controller methods: `setColormap`, `setCalMinMax`, `setOpacity`
+- [x] Events: `colormapChanged`, `intensityChanged`, `opacityChanged`
 
 ## 3. Mesh / Surface Support
 

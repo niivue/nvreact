@@ -38,6 +38,8 @@ export interface MockNiivue {
   setMouseEventConfig: ReturnType<typeof mock>;
   resizeListener: ReturnType<typeof mock>;
   removeVolume: ReturnType<typeof mock>;
+  updateGLVolume: ReturnType<typeof mock>;
+  setOpacity: ReturnType<typeof mock>;
   onLocationChange: ((data: unknown) => void) | null;
   onImageLoaded: ((vol: unknown) => void) | null;
   volumes: unknown[];
@@ -60,6 +62,8 @@ export function createMockNiivue(): MockNiivue {
     setMouseEventConfig: mock(() => {}),
     resizeListener: mock(() => {}),
     removeVolume: mock(() => {}),
+    updateGLVolume: mock(() => {}),
+    setOpacity: mock(() => {}),
     onLocationChange: null,
     onImageLoaded: null,
     volumes: [],

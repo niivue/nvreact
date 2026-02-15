@@ -13,6 +13,9 @@ export interface NvSceneEventMap {
   error: (viewerIndex: number, error: unknown) => void;
   volumeAdded: (viewerIndex: number, imageOptions: ImageFromUrlOptions, image: NVImage) => void;
   volumeRemoved: (viewerIndex: number, url: string) => void;
+  colormapChanged: (viewerIndex: number, volumeIndex: number, colormap: string) => void;
+  intensityChanged: (viewerIndex: number, volumeIndex: number, cal_min: number, cal_max: number) => void;
+  opacityChanged: (viewerIndex: number, volumeIndex: number, opacity: number) => void;
 }
 
 export interface ViewerState {

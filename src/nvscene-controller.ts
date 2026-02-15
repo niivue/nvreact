@@ -424,6 +424,54 @@ export class NvSceneController {
     }
   }
 
+  // --- Colormap / intensity / opacity ---
+
+  /**
+   * Look up the Niivue instance and NVImage at the given viewer and volume indices.
+   * Returns undefined if either index is out of bounds.
+   */
+  private findVolume(
+    viewerIndex: number,
+    volumeIndex: number,
+  ): { nv: Niivue; vol: NVImage; volumeIndex: number } | undefined {
+    const viewer = this.viewers[viewerIndex];
+    if (!viewer) return undefined;
+    const nv = viewer.niivue;
+    const vol = nv.volumes[volumeIndex] as NVImage | undefined;
+    if (!vol) return undefined;
+    return { nv, vol, volumeIndex };
+  }
+
+  /** Set the colormap for a volume at the given viewer and volume index. */
+  setColormap(viewerIndex: number, volumeIndex: number, colormap: string): void {
+    const found = this.findVolume(viewerIndex, volumeIndex);
+    if (!found) return;
+    found.vol.colormap = colormap;
+    found.nv.updateGLVolume();
+    this.emit("colormapChanged", viewerIndex, volumeIndex, colormap);
+    this.notify();
+  }
+
+  /** Set the intensity range (cal_min / cal_max) for a volume at the given viewer and volume index. */
+  setCalMinMax(viewerIndex: number, volumeIndex: number, cal_min: number, cal_max: number): void {
+    const found = this.findVolume(viewerIndex, volumeIndex);
+    if (!found) return;
+    found.vol.cal_min = cal_min;
+    found.vol.cal_max = cal_max;
+    found.nv.updateGLVolume();
+    this.emit("intensityChanged", viewerIndex, volumeIndex, cal_min, cal_max);
+    this.notify();
+  }
+
+  /** Set the opacity for a volume at the given viewer and volume index. */
+  setOpacity(viewerIndex: number, volumeIndex: number, opacity: number): void {
+    const found = this.findVolume(viewerIndex, volumeIndex);
+    if (!found) return;
+    found.nv.setOpacity(volumeIndex, opacity);
+    this.emit("opacityChanged", viewerIndex, volumeIndex, opacity);
+    this.notify();
+  }
+
   private incrementLoading(id: string): void {
     this.loadingCounts.set(id, (this.loadingCounts.get(id) ?? 0) + 1);
     this.notify();

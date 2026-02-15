@@ -686,4 +686,147 @@ describe("NvSceneController", () => {
       expect(defaultMouseConfig).toHaveProperty("centerButton");
     });
   });
+
+  // --- Colormap / intensity / opacity ---
+
+  describe("colormap and intensity controls", () => {
+    beforeEach(() => {
+      controller.setContainerElement(container);
+      controller.setLayout("1x1");
+    });
+
+    function setupVolumeOnViewer() {
+      const nv = mockInstances[mockInstances.length - 1]!;
+      nv.volumes = [
+        { url: "brain.nii", name: "brain.nii", colormap: "gray", cal_min: 0, cal_max: 255, opacity: 1.0 },
+      ];
+      return nv;
+    }
+
+    // --- setColormap ---
+
+    test("setColormap sets colormap on the volume and calls updateGLVolume", () => {
+      const nv = setupVolumeOnViewer();
+      controller.setColormap(0, 0, "hot");
+      expect((nv.volumes[0] as Record<string, unknown>).colormap).toBe("hot");
+      expect(nv.updateGLVolume).toHaveBeenCalled();
+    });
+
+    test("setColormap emits colormapChanged event", () => {
+      setupVolumeOnViewer();
+      const cb = mock((_viewerIndex: number, _volumeIndex: number, _colormap: string) => {});
+      controller.on("colormapChanged", cb);
+      controller.setColormap(0, 0, "hot");
+      expect(cb).toHaveBeenCalledWith(0, 0, "hot");
+    });
+
+    test("setColormap notifies subscribers", () => {
+      setupVolumeOnViewer();
+      const listener = mock(() => {});
+      controller.subscribe(listener);
+      const callsBefore = listener.mock.calls.length;
+      controller.setColormap(0, 0, "hot");
+      expect(listener.mock.calls.length).toBeGreaterThan(callsBefore);
+    });
+
+    test("setColormap is a no-op for invalid viewer index", () => {
+      setupVolumeOnViewer();
+      const cb = mock((_viewerIndex: number, _volumeIndex: number, _colormap: string) => {});
+      controller.on("colormapChanged", cb);
+      controller.setColormap(99, 0, "hot");
+      expect(cb).not.toHaveBeenCalled();
+    });
+
+    test("setColormap is a no-op for invalid volume index", () => {
+      setupVolumeOnViewer();
+      const cb = mock((_viewerIndex: number, _volumeIndex: number, _colormap: string) => {});
+      controller.on("colormapChanged", cb);
+      controller.setColormap(0, 5, "hot");
+      expect(cb).not.toHaveBeenCalled();
+    });
+
+    // --- setCalMinMax ---
+
+    test("setCalMinMax sets cal_min and cal_max on the volume and calls updateGLVolume", () => {
+      const nv = setupVolumeOnViewer();
+      controller.setCalMinMax(0, 0, 50, 200);
+      expect((nv.volumes[0] as Record<string, unknown>).cal_min).toBe(50);
+      expect((nv.volumes[0] as Record<string, unknown>).cal_max).toBe(200);
+      expect(nv.updateGLVolume).toHaveBeenCalled();
+    });
+
+    test("setCalMinMax emits intensityChanged event", () => {
+      setupVolumeOnViewer();
+      const cb = mock((_viewerIndex: number, _volumeIndex: number, _min: number, _max: number) => {});
+      controller.on("intensityChanged", cb);
+      controller.setCalMinMax(0, 0, 50, 200);
+      expect(cb).toHaveBeenCalledWith(0, 0, 50, 200);
+    });
+
+    test("setCalMinMax notifies subscribers", () => {
+      setupVolumeOnViewer();
+      const listener = mock(() => {});
+      controller.subscribe(listener);
+      const callsBefore = listener.mock.calls.length;
+      controller.setCalMinMax(0, 0, 50, 200);
+      expect(listener.mock.calls.length).toBeGreaterThan(callsBefore);
+    });
+
+    test("setCalMinMax is a no-op for invalid viewer index", () => {
+      setupVolumeOnViewer();
+      const cb = mock((_viewerIndex: number, _volumeIndex: number, _min: number, _max: number) => {});
+      controller.on("intensityChanged", cb);
+      controller.setCalMinMax(99, 0, 50, 200);
+      expect(cb).not.toHaveBeenCalled();
+    });
+
+    test("setCalMinMax is a no-op for invalid volume index", () => {
+      setupVolumeOnViewer();
+      const cb = mock((_viewerIndex: number, _volumeIndex: number, _min: number, _max: number) => {});
+      controller.on("intensityChanged", cb);
+      controller.setCalMinMax(0, 5, 50, 200);
+      expect(cb).not.toHaveBeenCalled();
+    });
+
+    // --- setOpacity ---
+
+    test("setOpacity calls nv.setOpacity with volume index and value", () => {
+      const nv = setupVolumeOnViewer();
+      controller.setOpacity(0, 0, 0.5);
+      expect(nv.setOpacity).toHaveBeenCalledWith(0, 0.5);
+    });
+
+    test("setOpacity emits opacityChanged event", () => {
+      setupVolumeOnViewer();
+      const cb = mock((_viewerIndex: number, _volumeIndex: number, _opacity: number) => {});
+      controller.on("opacityChanged", cb);
+      controller.setOpacity(0, 0, 0.5);
+      expect(cb).toHaveBeenCalledWith(0, 0, 0.5);
+    });
+
+    test("setOpacity notifies subscribers", () => {
+      setupVolumeOnViewer();
+      const listener = mock(() => {});
+      controller.subscribe(listener);
+      const callsBefore = listener.mock.calls.length;
+      controller.setOpacity(0, 0, 0.5);
+      expect(listener.mock.calls.length).toBeGreaterThan(callsBefore);
+    });
+
+    test("setOpacity is a no-op for invalid viewer index", () => {
+      setupVolumeOnViewer();
+      const cb = mock((_viewerIndex: number, _volumeIndex: number, _opacity: number) => {});
+      controller.on("opacityChanged", cb);
+      controller.setOpacity(99, 0, 0.5);
+      expect(cb).not.toHaveBeenCalled();
+    });
+
+    test("setOpacity is a no-op for invalid volume index", () => {
+      setupVolumeOnViewer();
+      const cb = mock((_viewerIndex: number, _volumeIndex: number, _opacity: number) => {});
+      controller.on("opacityChanged", cb);
+      controller.setOpacity(0, 5, 0.5);
+      expect(cb).not.toHaveBeenCalled();
+    });
+  });
 });
