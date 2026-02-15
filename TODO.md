@@ -6,13 +6,14 @@ Planned features and improvements. Check items off as they are completed.
 
 ## 1. Tests
 
-No test files exist yet. Add comprehensive coverage using Bun's built-in test
-runner (`bun:test`).
+~~No test files exist yet.~~ Comprehensive coverage added using Bun's built-in
+test runner (`bun:test`). CI workflow runs `bun test --coverage` on every push
+and PR.
 
-- [ ] Controller unit tests (`NvSceneController` lifecycle, layout, volumes, events, broadcasting)
-- [ ] Hook tests (`useScene`, `useNiivue`, `useSceneEvent`, `useSceneContext`)
-- [ ] Component smoke tests (`NvScene`, `NvViewer`, `NvSceneProvider`)
-- [ ] Volume diffing logic in `NvViewer`
+- [x] Controller unit tests (`NvSceneController` lifecycle, layout, volumes, events, broadcasting)
+- [x] Hook tests (`useScene`, `useNiivue`, `useSceneEvent`, `useSceneContext`)
+- [x] Component smoke tests (`NvScene`, `NvViewer`, `NvSceneProvider`)
+- [x] Volume diffing logic in `NvViewer`
 
 ## 2. Colormaps and Intensity Controls
 
