@@ -487,6 +487,103 @@ describe("NvSceneController", () => {
         expect(lastCall![0]).toEqual([]);
       }
     });
+
+    test("setBroadcasting(true) excludes viewers with no volumes or meshes", () => {
+      clearMockInstances();
+      controller.clearViewers();
+      controller.setLayout("2x2");
+      controller.addViewer();
+      controller.addViewer();
+
+      const nv0 = mockInstances[0]!;
+      const nv1 = mockInstances[1]!;
+      const nv2 = mockInstances[2]!;
+
+      nv0.volumes = [{ url: "a.nii", name: "a.nii" }];
+      nv0.meshes = [];
+      nv1.volumes = [{ url: "b.nii", name: "b.nii" }];
+      nv1.meshes = [];
+      nv2.volumes = [];
+      nv2.meshes = [];
+
+      expect(() => controller.setBroadcasting(true)).not.toThrow();
+
+      const last0 = nv0.broadcastTo.mock.calls[nv0.broadcastTo.mock.calls.length - 1];
+      const last1 = nv1.broadcastTo.mock.calls[nv1.broadcastTo.mock.calls.length - 1];
+      const last2 = nv2.broadcastTo.mock.calls[nv2.broadcastTo.mock.calls.length - 1];
+
+      expect(last0![0]).toEqual([nv1]);
+      expect(last1![0]).toEqual([nv0]);
+      expect(last2![0]).toEqual([]);
+    });
+
+    test("image load auto-rewires broadcasting for a previously empty viewer", () => {
+      const nv0 = mockInstances[0]!;
+      const nv1 = mockInstances[1]!;
+      nv0.volumes = [{ url: "a.nii", name: "a.nii" }];
+      nv0.meshes = [];
+      nv1.volumes = [];
+      nv1.meshes = [];
+
+      controller.setBroadcasting(true);
+
+      let last0 = nv0.broadcastTo.mock.calls[nv0.broadcastTo.mock.calls.length - 1];
+      let last1 = nv1.broadcastTo.mock.calls[nv1.broadcastTo.mock.calls.length - 1];
+      expect(last0![0]).toEqual([]);
+      expect(last1![0]).toEqual([]);
+
+      nv1.volumes = [{ url: "b.nii", name: "b.nii" }];
+      nv1.onImageLoaded?.({ url: "b.nii", name: "b.nii" });
+
+      last0 = nv0.broadcastTo.mock.calls[nv0.broadcastTo.mock.calls.length - 1];
+      last1 = nv1.broadcastTo.mock.calls[nv1.broadcastTo.mock.calls.length - 1];
+      expect(last0![0]).toEqual([nv1]);
+      expect(last1![0]).toEqual([nv0]);
+    });
+
+    test("mesh load auto-rewires broadcasting for a previously empty viewer", () => {
+      const nv0 = mockInstances[0]!;
+      const nv1 = mockInstances[1]!;
+      nv0.volumes = [{ url: "a.nii", name: "a.nii" }];
+      nv0.meshes = [];
+      nv1.volumes = [];
+      nv1.meshes = [];
+
+      controller.setBroadcasting(true);
+
+      let last0 = nv0.broadcastTo.mock.calls[nv0.broadcastTo.mock.calls.length - 1];
+      let last1 = nv1.broadcastTo.mock.calls[nv1.broadcastTo.mock.calls.length - 1];
+      expect(last0![0]).toEqual([]);
+      expect(last1![0]).toEqual([]);
+
+      nv1.meshes = [{ id: "mesh-1" }];
+      nv1.onMeshLoaded?.({ id: "mesh-1" });
+
+      last0 = nv0.broadcastTo.mock.calls[nv0.broadcastTo.mock.calls.length - 1];
+      last1 = nv1.broadcastTo.mock.calls[nv1.broadcastTo.mock.calls.length - 1];
+      expect(last0![0]).toEqual([nv1]);
+      expect(last1![0]).toEqual([nv0]);
+    });
+
+    test("broadcast wiring errors are captured and emitted without throwing", () => {
+      const nv0 = mockInstances[0]!;
+      const nv1 = mockInstances[1]!;
+      nv0.volumes = [{ url: "a.nii", name: "a.nii" }];
+      nv0.meshes = [];
+      nv1.volumes = [{ url: "b.nii", name: "b.nii" }];
+      nv1.meshes = [];
+      nv0.broadcastTo = mock(() => {
+        throw new Error("broadcast failed");
+      });
+
+      const errorCb = mock((_index: number, _err: unknown) => {});
+      controller.on("error", errorCb);
+
+      expect(() => controller.setBroadcasting(true)).not.toThrow();
+      expect(errorCb).toHaveBeenCalled();
+      expect(nv1.broadcastTo).toHaveBeenCalled();
+      expect(controller.getSnapshot().viewerStates[0]!.errors.length).toBe(1);
+    });
   });
 
   // --- Slice layouts ---
