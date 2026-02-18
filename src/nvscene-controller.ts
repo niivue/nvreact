@@ -318,25 +318,55 @@ export class NvSceneController {
     this.viewers.forEach((viewer, i) => callback(viewer.niivue, i));
   }
 
+  private hasSyncableContent(nv: Niivue): boolean {
+    return nv.volumes.length > 0 || nv.meshes.length > 0;
+  }
+
+  private safeBroadcastTo(
+    index: number,
+    targets: Niivue[],
+  ): void {
+    const viewer = this.viewers[index];
+    if (!viewer) return;
+    try {
+      viewer.niivue.broadcastTo(targets, this.broadcastOptions);
+    } catch (err) {
+      this.addError(viewer.id, err);
+      this.emit("error", index, err);
+    }
+  }
+
+  private rewireBroadcasting(): void {
+    if (!this.broadcasting) {
+      this.viewers.forEach((_viewer, index) => {
+        this.safeBroadcastTo(index, []);
+      });
+      return;
+    }
+
+    const syncableViewers = this.viewers.filter((viewer) =>
+      this.hasSyncableContent(viewer.niivue),
+    );
+
+    this.viewers.forEach((viewer, index) => {
+      if (!this.hasSyncableContent(viewer.niivue)) {
+        this.safeBroadcastTo(index, []);
+        return;
+      }
+
+      const others = syncableViewers
+        .filter((v) => v.id !== viewer.id)
+        .map((v) => v.niivue);
+      this.safeBroadcastTo(index, others);
+    });
+  }
+
   setBroadcasting(enabled: boolean, options?: Partial<BroadcastOptions>): void {
     this.broadcasting = enabled;
     if (options) {
       this.broadcastOptions = { ...this.broadcastOptions, ...options };
     }
-
-    if (enabled) {
-      this.viewers.forEach((viewer) => {
-        const others = this.viewers
-          .filter((v) => v.id !== viewer.id)
-          .map((v) => v.niivue);
-        viewer.niivue.broadcastTo(others, this.broadcastOptions);
-      });
-    } else {
-      this.viewers.forEach((viewer) => {
-        viewer.niivue.broadcastTo([], this.broadcastOptions);
-      });
-    }
-
+    this.rewireBroadcasting();
     this.notify();
   }
 
@@ -389,6 +419,9 @@ export class NvSceneController {
     try {
       const image = await viewer.niivue.addVolumeFromUrl(opts);
       this.emit("volumeAdded", index, opts, image);
+      if (this.broadcasting) {
+        this.rewireBroadcasting();
+      }
       return image;
     } catch (err) {
       this.addError(viewer.id, err);
@@ -420,6 +453,9 @@ export class NvSceneController {
     if (vol) {
       nv.removeVolume(vol);
       this.emit("volumeRemoved", index, url);
+      if (this.broadcasting) {
+        this.rewireBroadcasting();
+      }
       this.notify();
     }
   }
@@ -545,6 +581,14 @@ export class NvSceneController {
     };
     niivue.onImageLoaded = (vol: NVImage) => {
       this.emit("imageLoaded", index, vol);
+      if (this.broadcasting) {
+        this.rewireBroadcasting();
+      }
+    };
+    niivue.onMeshLoaded = (_mesh: unknown) => {
+      if (this.broadcasting) {
+        this.rewireBroadcasting();
+      }
     };
 
     // Update broadcasting to include new viewer

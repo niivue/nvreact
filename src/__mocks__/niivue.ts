@@ -42,7 +42,9 @@ export interface MockNiivue {
   setOpacity: ReturnType<typeof mock>;
   onLocationChange: ((data: unknown) => void) | null;
   onImageLoaded: ((vol: unknown) => void) | null;
+  onMeshLoaded: ((mesh: unknown) => void) | null;
   volumes: unknown[];
+  meshes: unknown[];
   opts: Record<string, unknown>;
   _gl: { getExtension: ReturnType<typeof mock> } | null;
   canvas: HTMLCanvasElement | null;
@@ -66,7 +68,9 @@ export function createMockNiivue(): MockNiivue {
     setOpacity: mock(() => {}),
     onLocationChange: null,
     onImageLoaded: null,
+    onMeshLoaded: null,
     volumes: [],
+    meshes: [],
     opts: { multiplanarShowRender: SHOW_RENDER.AUTO },
     _gl: {
       getExtension: mock(() => ({ loseContext: mock(() => {}) })),
