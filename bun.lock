@@ -6,7 +6,7 @@
       "name": "bun-react-template",
       "devDependencies": {
         "@happy-dom/global-registrator": "^20.6.1",
-        "@niivue/niivue": "0.67.1-dev.2",
+        "@niivue/niivue": "^0.68.1",
         "@testing-library/dom": "^10.4.1",
         "@testing-library/jest-dom": "^6.9.1",
         "@testing-library/react": "^16.3.2",
@@ -18,7 +18,7 @@
         "typescript": "^5.9.3",
       },
       "peerDependencies": {
-        "@niivue/niivue": "0.67.1-dev.2",
+        "@niivue/niivue": "^0.68.1",
         "react": "^19",
         "react-dom": "^19",
       },
@@ -39,7 +39,7 @@
 
     "@lukeed/uuid": ["@lukeed/uuid@2.0.1", "", { "dependencies": { "@lukeed/csprng": "^1.1.0" } }, "sha512-qC72D4+CDdjGqJvkFMMEAtancHUQ7/d/tAiHf64z8MopFDmcrtbcJuerDtFceuAfQJ2pDSfCKCtbqoGBNnwg0w=="],
 
-    "@niivue/niivue": ["@niivue/niivue@0.67.1-dev.2", "", { "dependencies": { "@lukeed/uuid": "^2.0.1", "@ungap/structured-clone": "^1.2.0", "array-equal": "^1.0.2", "fflate": "^0.8.2", "gl-matrix": "^3.4.3", "nifti-reader-js": "^0.8.0", "zarrita": "^0.5.0" }, "optionalDependencies": { "@rollup/rollup-linux-x64-gnu": "^4.18.1" } }, "sha512-WoyLzMtl2saaadNIvG/Gby3/F1o7gILPfBL+nHNV2te4mvyxTxNUWizCNjeCMlQIFsTfgZFV9FYPVclxoIxsqQ=="],
+    "@niivue/niivue": ["@niivue/niivue@0.68.1", "", { "dependencies": { "@lukeed/uuid": "^2.0.1", "@ungap/structured-clone": "^1.2.0", "array-equal": "^1.0.2", "fflate": "^0.8.2", "gl-matrix": "^3.4.3", "nifti-reader-js": "^0.8.0", "zarrita": "^0.5.0" }, "optionalDependencies": { "@rollup/rollup-linux-x64-gnu": "^4.18.1" } }, "sha512-uZ/4pJ6mGk8UY8DWOu+/cC/AOpPQW7W6kEhyOrEhuUDZW5+lPmmcnqU6ilipiR4iAcSA8r9KTXJm+p55iTyUgw=="],
 
     "@rollup/rollup-linux-x64-gnu": ["@rollup/rollup-linux-x64-gnu@4.57.1", "", { "os": "linux", "cpu": "x64" }, "sha512-ABca4ceT4N+Tv/GtotnWAeXZUZuM/9AQyCyKYyKnpk4yoA7QIAuBt6Hkgpw8kActYlew2mvckXkvx0FfoInnLg=="],
 
